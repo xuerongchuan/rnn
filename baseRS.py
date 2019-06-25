@@ -5,8 +5,19 @@ import tensorflow as tf
 
 
 class BaseRS(object):
-    def __init__(self, config):
-        self.conig = config
+    def __init__(self, config, dl):
+        self.config = config
+        self.dl = dl
+        self.opt = self.config.opt
+        self.lr = self.config.lr
+        self.type_of_loss = self.config.type_of_loss
+
+
+        self.rho = self.config.rho
+        self.epsilon = self.config.epsilon
+        self.beta1 = self.config.beta1
+        self.beta2 = self.config.beta2
+
     
     def _create_placeholders(self):
         pass
@@ -32,16 +43,15 @@ class BaseRS(object):
     def _create_loss(self):
         pass
     
-    def _optimize(self, loss , model_params ):
+    def _optimize(self ):
         if self.opt == 'adadelta':
-            train_step = tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon).minimize(loss, var_list= model_params)
+            return tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon)
         elif self.opt == 'sgd':
-            train_step = tf.train.GradientDescentOptimizer(self.lr, self.beta1, self.beta2, self.epsilon).minimize(loss,var_list=model_params)
+            return  tf.train.GradientDescentOptimizer(self.lr, self.beta1, self.beta2, self.epsilon)
         elif self.opt =='adam':
-            train_step = tf.train.AdamOptimizer(self.lr).minimize(loss, var_list=model_params)
+            return tf.train.AdamOptimizer(self.lr)
         elif self.opt =='ftrl':
-            train_step = tf.train.FtrlOptimizer(self.lr).minimize(loss, var_list=model_params)
-        return train_step
+            return tf.train.FtrlOptimizer(self.lr)
 
     def _create_optimizer(self):
         pass
