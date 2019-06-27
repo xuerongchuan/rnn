@@ -45,13 +45,13 @@ class BaseRS(object):
     
     def _optimize(self ):
         if self.opt == 'adadelta':
-            return tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon)
+            self.optimizer =  tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon)
         elif self.opt == 'sgd':
-            return  tf.train.GradientDescentOptimizer(self.lr, self.beta1, self.beta2, self.epsilon)
+            self.optimizer =  tf.train.GradientDescentOptimizer(self.lr, self.beta1, self.beta2, self.epsilon)
         elif self.opt =='adam':
-            return tf.train.AdamOptimizer(self.lr)
+            self.optimizer = tf.train.AdamOptimizer(self.lr)
         elif self.opt =='ftrl':
-            return tf.train.FtrlOptimizer(self.lr)
+            self.optimizer = tf.train.FtrlOptimizer(self.lr)
 
     def _create_optimizer(self):
         pass

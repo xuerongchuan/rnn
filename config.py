@@ -29,7 +29,7 @@ class Config(object):
         #优化器参数
 
         self.opt = 'adadelta'
-        self.lr = 0.1
+        self.lr = 1e-3
 
 
         self.rho = 0.95
@@ -40,13 +40,15 @@ class Config(object):
 
         
         self.init_value = 0.1
-        self.cell_type = 'rnn'
+        self.cell_type = 'lstm'
         self.layer_sizes = [16]
         self.layer_activations = ['tanh']
         self.embedding_size = 16
         self.min_window = 10
         self.max_window = 50
+        self.batch_len = 500
+        self.N = 10
 
-        print('config: lr:%.6f, loss:%s, opt:%s,activation:%S, embedding_size:%d'%(self.lr, self.type_of_loss,self.opt, \
-            self.layer_activations[-1],self.embedding_size))
+        print('config: lr:%.6f, loss:%s, opt:%s, activation:%s, embedding_size:%d, cell:%s'%(self.lr, self.type_of_loss,self.opt, \
+            self.layer_activations[-1],self.embedding_size, self.cell_type))
 

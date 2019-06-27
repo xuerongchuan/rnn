@@ -21,13 +21,14 @@ class Dataloader(object):
 			self.uhist.append(list(udata))
 
 		self.test_neg= []
-		print('data has been already!!!!!')
+		
 
 		with open('data/ml-1m.test.negative','r') as f:
 			for line in f.readlines():
 				values = [int(i) for i in line.strip().split('\t')[1:]]
 				self.test_neg.append(values)
 
+		print('data has been already!!!!!')
 
 	def _generate_neg_items(self, udata):
 		negative_items = []
@@ -79,6 +80,7 @@ class Dataloader(object):
 			len_batches = []
 			label_batches = []
 			udata = self.uhist[u]
+			udata = udata[-self.config.batch_len-1:-1]
 			train_inputs, train_is = self._get_train_data(udata)
 			for train_input, train_i in  zip(train_inputs, train_is):
 				input_batches.append(train_input)

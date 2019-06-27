@@ -61,8 +61,9 @@ class RnnRs(BaseRS):
             output, _ = tf.nn.dynamic_rnn(self.rnn_cell, self.X_seq_embedding, sequence_length = self.Len_seq, dtype=tf.float32 )
             u_t = self._gather_last_output(output, self.Len_seq)
             u_t = tf.reshape(u_t, (-1, self.layer_sizes[-1]), name = 'user_embedding')
+            self.bias = tf.expand_dims(self.bias, 1)
             self.output = tf.sigmoid(tf.reduce_sum(tf.multiply(u_t, self.Item_embedding), 1, keepdims = True) + self.bias , name= 'prediction')
-
+            tf.summary.histogram('predictions', self.output)
     def _create_loss(self):
         with tf.name_scope('loss'):
             #需要添加正则项！！！
@@ -73,12 +74,19 @@ class RnnRs(BaseRS):
             tf.summary.scalar('error', self.error)
             tf.summary.scalar('loss', self.loss)
 
-            self.summary = tf.summary.merge_all()
+            
     def _create_optimizer(self):
         with tf.name_scope('optimize'):
-            self.optimizer= self._optimize()
-            self.train_step = self.optimizer.minimize(self.loss)
 
+            self.optimizer= tf.train.AdamOptimizer(self.config.lr)
+            gradients = self.optimizer.compute_gradients(self.loss, var_list = tf.trainable_variables())
+            self.train_step = self.optimizer.apply_gradients(gradients)
+
+            for g,v in gradients:
+                tf.summary.histogram('grad/{}'.format(v.name), g)
+                tf.summary.histogram('grad/sparse/{}'.format(v.name), tf.nn.zero_fraction(g))
+
+            self.summary = tf.summary.merge_all()
     def fit(self, user_history, target_items, labels, user_history_lens):
         error, loss, summary, _ = self.sess.run(
                   [self.error, self.loss, self.summary, self.train_step], 
@@ -104,8 +112,7 @@ class RnnRs(BaseRS):
         predictions = preds.flatten()
         neg_predict, pos_predict = predictions[:-1], predictions[-1]
         position = (neg_predict >= pos_predict).sum()
-        #print(position)
-        hr = position < 10
+        hr =  1  if position < self.config.N else 0
         ndcg = math.log(2) / math.log(position+2) if hr else 0
         return (error, loss, hr, ndcg)
 
