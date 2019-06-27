@@ -52,3 +52,4 @@ class Config(object):
         print('config: lr:%.6f, loss:%s, opt:%s, activation:%s, embedding_size:%d, cell:%s'%(self.lr, self.type_of_loss,self.opt, \
             self.layer_activations[-1],self.embedding_size, self.cell_type))
 
+

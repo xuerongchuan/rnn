@@ -27,6 +27,12 @@ class BaseRS(object):
     
     def _create_inference(self):
         pass
+
+    def _create_loss(self):
+        pass
+
+    def _create_optimizer(self):
+        pass
     
     def _get_loss(self, preds, Y):
         if self.type_of_loss == 'cross_entropy_loss':
@@ -40,8 +46,7 @@ class BaseRS(object):
             error = tf.reduce_mean(tf.losses.log_loss(predictions=preds, labels=Y), name='mean_log_loss')
         
         return error
-    def _create_loss(self):
-        pass
+    
     
     def _optimize(self ):
         if self.opt == 'adadelta':
@@ -53,8 +58,7 @@ class BaseRS(object):
         elif self.opt =='ftrl':
             self.optimizer = tf.train.FtrlOptimizer(self.lr)
 
-    def _create_optimizer(self):
-        pass
+   
     
     def build_graph(self):
         self._create_placeholders()

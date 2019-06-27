@@ -75,6 +75,7 @@ class Dataloader(object):
 		np.random.shuffle(u_index)
 
 		for u in u_index:
+			user_batches = []
 			input_batches = []
 			item_batches = []
 			len_batches = []
@@ -83,6 +84,7 @@ class Dataloader(object):
 			udata = udata[-self.config.batch_len-1:-1]
 			train_inputs, train_is = self._get_train_data(udata)
 			for train_input, train_i in  zip(train_inputs, train_is):
+				user_batches.append(u)
 				input_batches.append(train_input)
 				item_batches.append(train_i)
 				len_batches.append(len(train_input))
@@ -92,8 +94,9 @@ class Dataloader(object):
 					item_batches.append(neg_i)
 					len_batches.append(len(train_input))
 					label_batches.append(0)
+					user_batches.append(u)
 
-			yield input_batches, item_batches, len_batches, label_batches
+			yield input_batches, item_batches, len_batches, label_batches, user_batches
 
 
 
@@ -102,6 +105,7 @@ class Dataloader(object):
 		np.random.shuffle(u_index)
 
 		for u in u_index:
+			user_batches = []
 			input_batches = []
 			item_batches = []
 			len_batches = []
@@ -115,12 +119,14 @@ class Dataloader(object):
 				item_batches.append(neg_i)
 				len_batches.append(len(test_input))
 				label_batches.append(0)
+				user_batches.append(u)
 			input_batches.append(test_input)
 			item_batches.append(test_i)
 			len_batches.append(len(test_input))
 			label_batches.append(1)
+			user_batches.append(u)
 
-			yield input_batches, item_batches, len_batches, label_batches
+			yield input_batches, item_batches, len_batches, label_batches, user_batches
 
 
 
