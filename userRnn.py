@@ -62,7 +62,7 @@ class UserRNN(BaseRS):
             self.Item_embedding = tf.nn.embedding_lookup(self.embedding_Q, self.Item)
             self.user_embedding = tf.nn.embedding_lookup(self.embedding_U, self.User)
             self.rnn_cell = tf.contrib.rnn.MultiRNNCell([self._get_a_cell(size, func) for (size, func) in zip(self.layer_sizes, self.layer_func)])
-            output, _ = tf.nn.dynamic_rnn(self.rnn_cell, self.X_seq_embedding, sequence_length = self.Len_seq, dtype=tf.float32 , initial_state= self.user_embedding)
+            output, _ = tf.nn.dynamic_rnn(self.rnn_cell, self.X_seq_embedding, sequence_length = self.Len_seq, dtype=tf.float32 , initial_state= (self.user_embedding,))
             u_t = self._gather_last_output(output, self.Len_seq)
             u_t = tf.reshape(u_t, (-1, self.layer_sizes[-1]), name = 'user_embedding')+ self.user_embedding
             self.bias = tf.expand_dims(self.bias, 1)
@@ -98,7 +98,7 @@ class UserRNN(BaseRS):
                    self.Item: target_items,
                    self.Label: labels,
                    self.Len_seq: user_history_lens,
-                   self.User = user_data
+                   self.User : user_data
                    }
         )
         self.log_writer.add_summary(summary, self._glo_ite_counter)
@@ -111,7 +111,7 @@ class UserRNN(BaseRS):
                    self.Item: target_items,
                    self.Label: labels,
                    self.Len_seq: user_history_lens,
-                   self.User = user_data
+                   self.User : user_data
                    }
 
         )

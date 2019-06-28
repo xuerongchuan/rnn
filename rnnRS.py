@@ -13,6 +13,7 @@ class RnnRs(BaseRS):
     def __init__(self,config, dl):
         
         super(RnnRs, self).__init__(config, dl)
+        self.opt = self.config.opt
         self.cell_type = self.config.cell_type
         self.layer_sizes = self.config.layer_sizes
         self.layer_activations = self.config.layer_activations
@@ -77,8 +78,16 @@ class RnnRs(BaseRS):
             
     def _create_optimizer(self):
         with tf.name_scope('optimize'):
+            if self.opt == 'adadelta':
+                self.optimizer =  tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon)
+            elif self.opt == 'sgd':
+                self.optimizer =  tf.train.GradientDescentOptimizer(self.lr)
+            elif self.opt =='adam':
+                self.optimizer = tf.train.AdamOptimizer(self.lr)
+            elif self.opt =='ftrl':
+                self.optimizer = tf.train.FtrlOptimizer(self.lr)
 
-            self.optimizer= tf.train.AdamOptimizer(self.config.lr)
+            #self.optimizer= tf.train.AdamOptimizer(self.config.lr)
             gradients = self.optimizer.compute_gradients(self.loss, var_list = tf.trainable_variables())
             self.train_step = self.optimizer.apply_gradients(gradients)
 

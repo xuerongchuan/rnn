@@ -23,7 +23,7 @@ class Dataloader(object):
 		self.test_neg= []
 		
 
-		with open('data/ml-1m.test.negative','r') as f:
+		with open('../data/ml-1m.test.negative','r') as f:
 			for line in f.readlines():
 				values = [int(i) for i in line.strip().split('\t')[1:]]
 				self.test_neg.append(values)

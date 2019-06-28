@@ -4,7 +4,7 @@ class Config(object):
     
     def __init__(self):
         
-        self.data_path = 'data/ml-1m/rating.csv'
+        self.data_path = '../data/ml-1m/rating.csv'
         self.train_path = self.data_path + 'rating.csv'
         self.test_path = None
 
@@ -21,15 +21,15 @@ class Config(object):
         #超参数
         #正则化参数
         self.type_of_loss = 'log_loss'
-        self.regI1 = 1e-4
-        self.regI2 = 1e-4
-        self.reg_bias = 1e-4
+        self.regI1 = 1e-3
+        self.regI2 = 1e-3
+        self.reg_bias = 1e-3
 
        
         #优化器参数
 
-        self.opt = 'adadelta'
-        self.lr = 1e-3
+        self.opt = 'adam'
+        self.lr = 1e-2
 
 
         self.rho = 0.95
@@ -40,10 +40,10 @@ class Config(object):
 
         
         self.init_value = 0.1
-        self.cell_type = 'lstm'
-        self.layer_sizes = [16]
-        self.layer_activations = ['tanh']
-        self.embedding_size = 16
+        self.cell_type = 'gru'
+        self.layer_sizes = [32, 32]
+        self.layer_activations = ['tanh','relu']
+        self.embedding_size = 32
         self.min_window = 10
         self.max_window = 50
         self.batch_len = 500
