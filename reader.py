@@ -48,6 +48,8 @@ class Dataloader(object):
 			window = self.config.min_window
 		elif window > self.config.max_window:
 			window = self.config.max_window
+		if self.config.window:
+			window = self.config.window
 
 		train_inputs = []
 		train_is = []
@@ -55,6 +57,50 @@ class Dataloader(object):
 			train_is.append(i)
 			train_inputs.append(udata[index:index+window])
 		return train_inputs, train_is
+	def _get_train_shuffle_data(self, u, udata):
+
+		user_inputs, user_is = self._get_train_data(udata)
+		return list(zip([u]*len(user_inputs), user_inputs, user_is))
+	def _getTrainShuffle(self):
+		all_inputs = []
+		for u in range(self.num_users):
+			udata = self.uhist[u]
+			udata = udata[-self.config.batch_len-1:-1]
+			all_inputs.append(self._get_train_shuffle_data(u,udata))
+		all_inputs = sum(all_inputs,[])
+		return all_inputs
+	def getTrainShuffleBatches(self):
+		all_inputs = self._getTrainShuffle()
+		lenth = len(all_inputs)
+		batch_len = lenth // self.config.batch_size
+		for batch_i in range(batch_len):
+			data = all_inputs[batch_i*self.config.batch_size: batch_i*self.config.batch_size+self.config.batch_size] 
+			yield self._get_shuffle_batches(data)
+	def _get_shuffle_batches(self, data):
+		np.random.shuffle(data)
+		user_batches = []
+		input_batches = []
+		item_batches = []
+		len_batches = []
+		label_batches = []
+		for u, u_input, ui in data:
+			user_batches.append(u)
+			input_batches.append(u_input)
+			item_batches.append(ui)
+			len_batches.append(len(u_input))
+			label_batches.append(1)
+			for neg_i in self._generate_neg_items(self.uhist[u]):
+					input_batches.append(u_input)
+					item_batches.append(neg_i)
+					len_batches.append(len(u_input))
+					label_batches.append(0)
+					user_batches.append(u)
+		return input_batches, item_batches, len_batches, label_batches, user_batches
+
+
+		
+
+		
 
 	def _get_test_data(self,udata):
 		len_udata = len(udata)
@@ -65,6 +111,8 @@ class Dataloader(object):
 		elif window > self.config.max_window:
 			window = self.config.max_window
 
+		if self.config.window:
+			window = self.config.window
 		test_i = udata[-1]
 		test_input = udata[-1-window:-1]
 
