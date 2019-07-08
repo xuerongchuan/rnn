@@ -2,7 +2,7 @@ from config import Config
 from rnnRS import RnnRs
 from userRnn import UserRNN
 from attURnn import AttUserRNN
-from reader import Dataloader
+from mreader import Dataloader
 
 test= 0
 user = 0
@@ -11,6 +11,7 @@ config = Config()
 if test:
 	config.data_path = '../data/ml-1m/sample.csv'
 	config.num_users = 50
+	config.train_path = '../data/ml-1m/train2'
 
 
 

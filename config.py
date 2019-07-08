@@ -5,8 +5,8 @@ class Config(object):
     def __init__(self):
         
         self.data_path = '../data/ml-1m/rating.csv'
-        self.train_path = self.data_path + 'rating.csv'
-        self.test_path = None
+        self.train_path = '../data/ml-1m/train'
+        self.test_path = '../data/ml-1m/test'
 
         self.summary_path = 'summary/train/'
         self.epoches = 100
@@ -22,16 +22,19 @@ class Config(object):
         #超参数
         #正则化参数
         self.type_of_loss = 'log_loss'
-        self.regI1 = 1e-2
-        self.regI2 = 1e-2
-        self.reg_bias = 1e-2
-        self.regU = 1e-2
+        self.reg = 1e-4
+        reg = self.reg
+        self.regI1 = reg 
+        self.regI2 = reg
+        self.reg_bias = reg
+        self.regU = reg
+        self.reg_W = reg
 
        
         #优化器参数
 
         self.opt = 'adam'
-        self.lr = 1e-2/2.0
+        self.lr = 1e-2
 
 
         self.rho = 0.95
@@ -43,8 +46,8 @@ class Config(object):
         
         self.init_value = 0.1
         self.cell_type = 'gru'
-        self.layer_sizes = [16]
-        self.layer_activations = ['tanh']
+        self.layer_sizes = [32,16,16]
+        self.layer_activations = ['tanh','relu','relu']
         self.embedding_size = 16
         self.window = 20
         self.min_window = 10
@@ -54,8 +57,9 @@ class Config(object):
         # attention
         self.weight_size = 16
         self.beta = 0.5
+    def print_info(self):
 
-        print('config: lr:%.6f, loss:%s, opt:%s, activation:%s, embedding_size:%d, cell:%s'%(self.lr, self.type_of_loss,self.opt, \
-            self.layer_activations[-1],self.embedding_size, self.cell_type))
+        print('config: lr:%.6f, loss:%s, opt:%s, activation:%s, embedding_size:%d, cell:%s, reg:%.6f'%(self.lr, self.type_of_loss,self.opt, \
+            self.layer_activations[-1],self.embedding_size, self.cell_type, self.reg))
 
 

@@ -5,6 +5,7 @@ from baseRS import BaseRS
 import time
 import numpy as np
 import math
+from  sklearn.metrics import roc_auc_score 
 
 
 
@@ -43,8 +44,10 @@ class AttUserRNN(BaseRS):
             self.biases = tf.Variable(tf.truncated_normal([self.dl.num_items], stddev=self.init_value*0.1, mean=0), dtype=tf.float32, name='biases')
             self.embedding_U = tf.Variable(tf.truncated_normal(shape=[self.dl.num_users, self.config.embedding_size], mean=0.0, stddev=0.01),\
                             name='embedding_P', dtype = tf.float32)
-            self.embedding_P = tf.Variable(tf.truncated_normal(shape=[self.dl.num_items, self.config.embedding_size], mean=0.0, stddev=0.01),\
-                            name='embedding_P', dtype = tf.float32)
+            self.c1 = tf.Variable(tf.truncated_normal(shape=[self.dl.num_items, self.config.embedding_size], mean=0.0, stddev=0.01),\
+                            name='c1', dtype = tf.float32)
+            self.c2 = tf.constant(0.0, tf.float32, [1, self.config.embedding_size], name='c2')
+            self.embedding_P = tf.concat([self.c1, self.c2], 0 , name='emebedding_P') 
             self.embedding_Q = tf.Variable(tf.truncated_normal(shape=[self.dl.num_items, self.config.embedding_size], mean=0.0, stddev=0.01),\
                             name='embedding_Q', dtype = tf.float32)
             self.W = tf.Variable(tf.truncated_normal(shape=[self.config.embedding_size, self.config.weight_size], mean=0.0, \
@@ -74,7 +77,7 @@ class AttUserRNN(BaseRS):
             # mask_mat = tf.sequence_mask(tf.reduce_sum(num_idx,1), maxlen = n, dtype = tf.float32) # (b, n)
             # exp_A_ = mask_mat * exp_A_
             exp_sum = tf.reduce_sum(exp_A_,1, keepdims=True)  # (b, 1)
-            #exp_sum = tf.pow(exp_sum, tf.constant(self.config.beta, tf.float32, [1]))
+            exp_sum = tf.pow(exp_sum, 0.5)
     
             A = tf.expand_dims(tf.div(exp_A_, exp_sum),2) # (b, n, 1)
 
@@ -88,14 +91,20 @@ class AttUserRNN(BaseRS):
             self.bias = tf.nn.embedding_lookup(self.biases, self.Item)
             self.Item_embedding = tf.nn.embedding_lookup(self.embedding_Q, self.Item)
             self.user_embedding = tf.nn.embedding_lookup(self.embedding_U, self.User)
-            self.rnn_cell = tf.contrib.rnn.MultiRNNCell([self._get_a_cell(size, func) for (size, func) in zip(self.layer_sizes, self.layer_func)])
-            output, _ = tf.nn.dynamic_rnn(self.rnn_cell, self.X_seq_embedding, sequence_length = self.Len_seq, dtype=tf.float32 , initial_state= (self.user_embedding,))
-
-            u_t = self._attention_MLP((output*tf.expand_dims(self.user_embedding,1)), output)
+            self.rnn_cell = tf.contrib.rnn.MultiRNNCell([self._get_a_cell(size, func) for (size, func) in \
+                zip(self.layer_sizes, self.layer_func)])
+            output, _ = tf.nn.dynamic_rnn(self.rnn_cell, self.X_seq_embedding, sequence_length = self.Len_seq, \
+            dtype=tf.float32 )#initial_state= (self.user_embedding,))
+            last = self._gather_last_output(output, self.Len_seq)
+            u_t_long = self._attention_MLP((self.X_seq_embedding*tf.expand_dims(self.Item_embedding,1)), output)
+            # u_t_short = self._attention_MLP((output*tf.expand_dims(last,1)), output)
+            last = tf.reshape(last, (-1, self.layer_sizes[-1]))
+            u_t = self.user_embedding+u_t_long
             self.bias = tf.expand_dims(self.bias, 1)
             #self.output = tf.sigmoid(tf.reduce_sum(tf.multiply(u_t, self.Item_embedding), 1, keepdims = True) + self.bias , name= 'prediction')
-            #self.output = tf.sigmoid(tf.layers.dense(tf.multiply(u_t, self.user_embedding), 1) + self.bias , name= 'prediction')
-            self.output = tf.layers.dense(tf.multiply(u_t, self.user_embedding)+self.bias, 1, activation=tf.sigmoid)
+            self.output = tf.sigmoid(tf.layers.dense(tf.multiply(u_t, self.Item_embedding), 1) + self.bias , \
+                name= 'prediction')
+            #self.output = tf.layers.dense(tf.multiply(u_t, self.Item_embedding)+self.bias, 1, activation=tf.sigmoid)
             tf.summary.histogram('predictions', self.output)
             tf.summary.histogram('user_embedding', self.user_embedding)
     def _create_loss(self):
@@ -104,7 +113,7 @@ class AttUserRNN(BaseRS):
             self.error = self._get_loss(self.output, self.Label)
             self.loss = self.error + self.config.regI1*(tf.reduce_sum(tf.square(self.embedding_Q)))+self.config.regI2*(tf.reduce_sum(tf.square(self.embedding_P)))
             self.loss += self.config.regU*(tf.reduce_sum(tf.square(self.embedding_U)))#+
-            self.loss += self.config.reg_bias*tf.reduce_sum(tf.square(self.W))
+            self.loss += self.config.reg_W*tf.reduce_sum(tf.square(self.W))+self.config.reg_bias*(tf.reduce_sum(tf.square(self.biases)))
             tf.summary.scalar('error', self.error)
             tf.summary.scalar('loss', self.loss)
 
@@ -112,11 +121,17 @@ class AttUserRNN(BaseRS):
     def _create_optimizer(self):
         with tf.name_scope('optimize'):
 
-            self.optimizer= tf.train.AdamOptimizer(self.config.lr)
-            gradients = self.optimizer.compute_gradients(self.loss, var_list = tf.trainable_variables())
-            self.train_step = self.optimizer.apply_gradients(gradients)
+            starter_learning_rate = self.config.lr
+            learning_rate = tf.train.exponential_decay(starter_learning_rate,
+            self._glo_ite_counter, 100000, 0.96, staircase=True)
 
-            for g,v in gradients:
+            self.optimizer= tf.train.AdamOptimizer(learning_rate)
+            gradients = self.optimizer.compute_gradients(self.loss, var_list = tf.trainable_variables())
+            gradients, v = zip(*gradients)
+            gradients, _ = tf.clip_by_global_norm(gradients, 1.25)
+            self.train_step = self.optimizer.apply_gradients(zip(gradients,v))
+
+            for g,v in zip(gradients,v):
                 if g is not None:
                     tf.summary.histogram('grad/{}'.format(v.name), g)
                     tf.summary.histogram('grad/sparse/{}'.format(v.name), tf.nn.zero_fraction(g))
@@ -147,28 +162,30 @@ class AttUserRNN(BaseRS):
 
         )
         predictions = preds.flatten()
-        neg_predict, pos_predict = predictions[:-1], predictions[-1]
-        position = (neg_predict >= pos_predict).sum()
-        hr =  1  if position < self.config.N else 0
-        ndcg = math.log(2) / math.log(position+2) if hr else 0
-        return (error, loss, hr, ndcg)
+        labels = labels.flatten()
+        auc = roc_auc_score( labels,predictions)
+
+        predictions = predictions > 0.5
+        precision = sum(predictions*labels)/sum(predictions)
+        return (error, loss, precision, auc)
 
     def train_and_evaluate(self):
-
+        self.config.print_info()
         for epoch_count in range(self.config.epoches):
                 #train
                 train_begin = time.time()
                 train_loss = 0.0
                 train_error = 0.0
                 batch_i = 0
-                for data in self.dl.getTrainShuffleBatches():
+                for data in self.dl.getTrainBatches():
 
-                    input_data = np.array(data[0])
+                    input_data = np.array(data[1])
 
-                    item_data = np.array(data[1])
-                    len_data = np.array(data[2])
+                    item_data = np.array(data[2])
+                    len_data = np.array(data[4])
                     label_data = np.array(data[3])[:, np.newaxis]
-                    user_data = np.array(data[4])
+                    user_data = np.array(data[0])
+
                     error, loss = self.fit(input_data, item_data, label_data, len_data, user_data)
                     train_loss+=loss
                     train_error += error
@@ -180,32 +197,33 @@ class AttUserRNN(BaseRS):
 
      
                     eval_begin = time.time() 
-                    hits, ndcgs = [],[]
+                    hits,  aucs = [], []
                     test_loss = 0.0
                     test_error = 0.0
                     batch_i = 0
                     for data in self.dl.getTestBatches():
-                        input_data = np.array(data[0])
-                        item_data = np.array(data[1])
-                        len_data = np.array(data[2])
-                        label_data = np.array(data[3])[:,np.newaxis]
-                        user_data = np.array(data[4])
-                        error, loss, hr, ndcg = self.evaluate(input_data, item_data, label_data, len_data, user_data)
+                        input_data = np.array(data[1])
+
+                        item_data = np.array(data[2])
+                        len_data = np.array(data[4])
+                        label_data = np.array(data[3])[:, np.newaxis]
+                        user_data = np.array(data[0])
+                        error, loss, hr,  auc = self.evaluate(input_data, item_data, label_data, len_data, user_data)
                         test_loss+=loss
                         test_error += error
                         batch_i+=1
                         hits.append(hr)
-                        ndcgs.append(ndcg)  
+                        aucs.append(auc)
                     test_loss /= batch_i
                     test_error /= batch_i
                     
-                    hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
+                    hr, auc = np.array(hits).mean(), np.array(aucs).mean()
                     eval_time = time.time() - eval_begin
         #             print("Epoch %d [%.1fs ]:  train_loss = %.4f" % (
         #                     epoch_count,train_time, train_loss))    
-                    print("Epoch %d [ %.1fs]: HR = %.4f, NDCG = %.4f, loss = %.4f ,error = %.4f [%.1fs] train_loss = %.4f ,train_error = %.4f [%.1fs]" % (
-                                epoch_count, train_time, hr, ndcg, test_loss, test_error, eval_time, train_loss, train_error, train_time))
+                    print("Epoch %d [ %.1fs]: precision = %.4f,  AUC=%.4f, loss = %.4f ,error = %.4f [%.1fs] train_loss = %.4f ,train_error = %.4f [%.1fs]" % (
+                                epoch_count, train_time, hr,  auc, test_loss, test_error, eval_time, train_loss, train_error, train_time))
+                    # print("Epoch %d [ %.1fs]: hr = %.4f, ndcg = %.4f, AUC=%.4f, loss = %.4f ,error = %.4f [%.1fs] train_loss = %.4f ,train_error = %.4f [%.1fs]" % (
+                    #             epoch_count, train_time, hr, ndcg, auc, test_loss, test_error, eval_time, train_loss, train_error, train_time))
 
     
-
-

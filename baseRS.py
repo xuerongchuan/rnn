@@ -80,11 +80,12 @@ class BaseRS(object):
             return tf.nn.relu6
         return tf.tanh 
     def _init_graph(self):
+        self._glo_ite_counter = 0
         self.build_graph()
         
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
         self.log_writer = tf.summary.FileWriter(self.config.summary_path, graph = self.sess.graph)
-        self._glo_ite_counter = 0
+        
         
     
