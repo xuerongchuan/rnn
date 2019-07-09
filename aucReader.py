@@ -31,7 +31,7 @@ class Dataloader(object):
 		print('data has been already!!!!!')
 	def trainset(self):
 		for udata in self.uhist:
-			yield zip(udata[:-1], [0]*len(udata[:-1]))
+			yield zip(udata[:-10], [0]*len(udata[:-10]))
 
 	def _generate_neg_items(self, udata):
 		negative_items = []
@@ -56,7 +56,7 @@ class Dataloader(object):
 
 		train_inputs = []
 		train_is = []
-		for index, i in enumerate(udata[window:-1]):
+		for index, i in enumerate(udata[window:]):
 			train_is.append(i)
 			train_inputs.append(udata[index:index+window])
 		return train_inputs, train_is
@@ -68,7 +68,7 @@ class Dataloader(object):
 		all_inputs = []
 		for u in range(self.num_users):
 			udata = self.uhist[u]
-			udata = udata[-self.config.batch_len-1:-1]
+			udata = udata[-self.config.batch_len-1:-10]
 			all_inputs.append(self._get_train_shuffle_data(u,udata))
 		all_inputs = sum(all_inputs,[])
 		return all_inputs
@@ -116,10 +116,11 @@ class Dataloader(object):
 
 		if self.config.window:
 			window = self.config.window
-		test_i = udata[-1]
-		test_input = udata[-1-window:-1]
 
-		return test_input, test_i
+		test_is = udata[-10:]
+		test_input = udata[-10-window:-10]
+
+		return test_input, test_is
 
 	def getTrainBatches(self):
 		u_index = list(range(self.num_users))
@@ -162,20 +163,21 @@ class Dataloader(object):
 			len_batches = []
 			label_batches = []
 			udata = self.uhist[u]
-			neg_items = self.test_neg[u]
+			neg_items = np.random.choice(self.test_neg[u],10)
 
-			test_input, test_i =  self._get_test_data(udata)
+			test_input, test_is =  self._get_test_data(udata)
 			for neg_i in neg_items:
 				input_batches.append(test_input)
 				item_batches.append(neg_i)
 				len_batches.append(len(test_input))
 				label_batches.append(0)
 				user_batches.append(u)
-			input_batches.append(test_input)
-			item_batches.append(test_i)
-			len_batches.append(len(test_input))
-			label_batches.append(1)
-			user_batches.append(u)
+			for i in test_is:
+				input_batches.append(test_input)
+				item_batches.append(i)
+				len_batches.append(len(test_input))
+				label_batches.append(1)
+				user_batches.append(u)
 
 			yield input_batches, item_batches, len_batches, label_batches, user_batches
 

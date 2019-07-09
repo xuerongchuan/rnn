@@ -105,43 +105,49 @@ class RnnRs(BaseRS):
             tf.summary.scalar('loss', self.loss)
 
             
-    def _create_optimizer(self):
+     def _create_optimizer(self):
         with tf.name_scope('optimize'):
+            starter_learning_rate = self.config.lr
+            learning_rate = tf.train.exponential_decay(starter_learning_rate,
+            self._glo_ite_counter, 100000, 0.96, staircase=True)
 
-            self.optimizer= tf.train.AdamOptimizer(self.config.lr)
+            self.optimizer= tf.train.AdamOptimizer(learning_rate)
             gradients = self.optimizer.compute_gradients(self.loss, var_list = tf.trainable_variables())
-            
-            self.train_step = self.optimizer.apply_gradients(gradients)
+            gradients, v = zip(*gradients)
+            gradients, _ = tf.clip_by_global_norm(gradients, 1.25)
+            self.train_step = self.optimizer.apply_gradients(zip(gradients,v))
 
-            for g,v in gradients:
-                if g is not None:
-                    tf.summary.histogram('grad/{}'.format(v.name), g)
-                    tf.summary.histogram('grad/sparse/{}'.format(v.name), tf.nn.zero_fraction(g))
+            for g,v in zip(gradients,v):
+                tf.summary.histogram('grad/{}'.format(v.name), g)
+                tf.summary.histogram('grad/sparse/{}'.format(v.name), tf.nn.zero_fraction(g))
 
             self.summary = tf.summary.merge_all()
-    def fit(self, user_history, target_items, labels, user_history_lens):
+    def fit(self, user_history, target_items, labels, user_history_lens, user_data):
         error, loss, summary, _ = self.sess.run(
                   [self.error, self.loss, self.summary, self.train_step], 
                   {self.X_seq: user_history, 
                    self.Item: target_items,
                    self.Label: labels,
-                   self.Len_seq: user_history_lens
+                   self.Len_seq: user_history_lens,
+                   self.User : user_data
                    }
         )
         self.log_writer.add_summary(summary, self._glo_ite_counter)
         self._glo_ite_counter+=1
         return (error, loss)
-    def evaluate(self, user_history, target_items, labels, user_history_lens):
+    def evaluate(self, user_history, target_items, labels, user_history_lens, user_data):
         error, loss, preds  = self.sess.run(
                   [self.error, self.loss, self.output], 
                   {self.X_seq: user_history, 
                    self.Item: target_items,
                    self.Label: labels,
-                   self.Len_seq: user_history_lens
+                   self.Len_seq: user_history_lens,
+                   self.User : user_data
                    }
 
         )
         predictions = preds.flatten()
+        labels = labels.flatten()
         auc = roc_auc_score( labels,predictions)
 
         predictions = predictions > 0.5
@@ -149,24 +155,24 @@ class RnnRs(BaseRS):
         recall = sum(predictions*labels)/sum(labels)
         return (error, loss, precision, recall, auc)
 
-
     def train_and_evaluate(self):
-        self.config.print_info()
+
         for epoch_count in range(self.config.epoches):
                 #train
                 train_begin = time.time()
                 train_loss = 0.0
                 train_error = 0.0
                 batch_i = 0
-                for data in self.dl.getTrainBatches():
+                for data in self.dl.getShuffleTrainBatches():
 
                     input_data = np.array(data[1])
 
                     item_data = np.array(data[2])
                     len_data = np.array(data[4])
                     label_data = np.array(data[3])[:, np.newaxis]
-                    # user_data = np.array(data[0])
-                    error, loss = self.fit(input_data, item_data, label_data, len_data)
+                    user_data = np.array(data[0])
+
+                    error, loss = self.fit(input_data, item_data, label_data, len_data, user_data)
                     train_loss+=loss
                     train_error += error
                     batch_i+=1
@@ -183,29 +189,26 @@ class RnnRs(BaseRS):
                     batch_i = 0
                     for data in self.dl.getTestBatches():
                         input_data = np.array(data[1])
+
                         item_data = np.array(data[2])
                         len_data = np.array(data[4])
-                        label_data = np.array(data[3])[:,np.newaxis]
-                        # user_data = np.array(data[0])
-                        error, loss, hr, ndcg, auc = self.evaluate(input_data, item_data, label_data, len_data)
+                        label_data = np.array(data[3])[:, np.newaxis]
+                        user_data = np.array(data[0])
+                        error, loss, hr, ndcg, auc = self.evaluate(input_data, item_data, label_data, len_data, user_data)
                         test_loss+=loss
                         test_error += error
                         batch_i+=1
                         hits.append(hr)
-                        ndcgs.append(ndcg) 
-                        aucs.append(auc) 
+                        ndcgs.append(ndcg)  
+                        aucs.append(auc)
                     test_loss /= batch_i
                     test_error /= batch_i
                     
-                    hr, ndcg,auc = np.array(hits).mean(), np.array(ndcgs).mean(), np.array(aucs).mean()
+                    hr, ndcg, auc = np.array(hits).mean(), np.array(ndcgs).mean(), np.array(aucs).mean()
                     eval_time = time.time() - eval_begin
         #             print("Epoch %d [%.1fs ]:  train_loss = %.4f" % (
         #                     epoch_count,train_time, train_loss))    
                     print("Epoch %d [ %.1fs]: precision = %.4f, recall = %.4f, AUC=%.4f, loss = %.4f ,error = %.4f [%.1fs] train_loss = %.4f ,train_error = %.4f [%.1fs]" % (
                                 epoch_count, train_time, hr, ndcg, auc, test_loss, test_error, eval_time, train_loss, train_error, train_time))
-
-    
-
-    
-
-
+                    # print("Epoch %d [ %.1fs]: hr = %.4f, ndcg = %.4f, AUC=%.4f, loss = %.4f ,error = %.4f [%.1fs] train_loss = %.4f ,train_error = %.4f [%.1fs]" % (
+                    #             epoch_count, train_time, hr, ndcg, auc, test_loss, test_error, eval_time, train_loss, train_error, train_time))

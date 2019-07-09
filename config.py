@@ -22,7 +22,7 @@ class Config(object):
         #超参数
         #正则化参数
         self.type_of_loss = 'log_loss'
-        self.reg = 1e-4
+        self.reg = 1e-3
         reg = self.reg
         self.regI1 = reg 
         self.regI2 = reg
@@ -34,7 +34,7 @@ class Config(object):
         #优化器参数
 
         self.opt = 'adam'
-        self.lr = 1e-2
+        self.lr = 1e-3
 
 
         self.rho = 0.95
@@ -46,13 +46,13 @@ class Config(object):
         
         self.init_value = 0.1
         self.cell_type = 'gru'
-        self.layer_sizes = [32,16,16]
-        self.layer_activations = ['tanh','relu','relu']
+        self.layer_sizes = [16]
+        self.layer_activations = ['relu']
         self.embedding_size = 16
         self.window = 20
         self.min_window = 10
         self.max_window = 50
-        self.batch_len = 256
+        self.batch_len = 128
         self.N = 10
         # attention
         self.weight_size = 16

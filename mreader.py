@@ -15,7 +15,7 @@ class Dataloader(object):
 
 	
 
-	def getTrainBatches(self):
+	def getTrainShuffleBatches(self):
 		with open(self.config.train_path) as f:
 			data = f.readline()
 			batch_i = 0
@@ -41,7 +41,7 @@ class Dataloader(object):
 					item_data = [item_data[i] for i in indexes]
 					label_data = [label_data[i] for i in indexes]
 					len_data = [len_data[i] for i in indexes]
-					yield user_data, input_data, item_data, label_data, len_data
+					yield  input_data, item_data, len_data,label_data, user_data
 					user_data = []
 					input_data = []
 					item_data = []
@@ -75,7 +75,7 @@ class Dataloader(object):
 					item_data = [item_data[i] for i in indexes]
 					label_data = [label_data[i] for i in indexes]
 					len_data = [len_data[i] for i in indexes]
-					yield user_data, input_data, item_data, label_data, len_data
+					yield input_data, item_data, len_data,label_data, user_data
 					user_data = []
 					input_data = []
 					item_data = []
